@@ -35,8 +35,10 @@ The agent dispatched `keeper exec <lease> …`; the key was decrypted inside kee
 Run the broker and the agent needs no key, no `exec`, no redeem — only a base-URL swap:
 
 ```bash
-# bind a lease to ONE upstream + how to inject the secret
-LEASE=$(keeper grant OPENAI_API_KEY --upstream https://api.openai.com --inject bearer --ttl 600 --uses 100)
+# bind a lease to ONE upstream, how to inject, which endpoints, and a rate cap
+LEASE=$(keeper grant OPENAI_API_KEY \
+  --upstream https://api.openai.com --inject bearer \
+  --paths "/v1/chat/*,/v1/models" --rate 60 --ttl 600 --uses 100)
 keeper broker --port 8771 &
 ```
 
@@ -48,6 +50,12 @@ await openai.chat.completions.create({ model: 'gpt-4o-mini', messages: [/* … *
 ```
 
 For each call the broker redeems the lease (atomic + audited), makes the **real** upstream request itself with the secret injected (`Authorization: Bearer …`), and streams the response back. The key is injected at the network boundary — it never enters the agent's context, env, or logs. And because the lease is **bound to one upstream**, the secret can only ever go to that host; the agent can't redirect it. `--inject`: `bearer` (default) · `x-api-key` (Anthropic) · `Header-Name` (custom).
+
+**Scope it down further:**
+- `--paths "/v1/chat/*,/v1/models"` — restrict the lease to specific endpoints (glob; a chat lease can't reach billing or admin).
+- `--rate 60` — cap it at 60 requests/min.
+
+Both are enforced **before** the secret is redeemed — an out-of-scope or over-rate request gets `403` / `429`, consumes no use, and is audited.
 
 ## Why a lease, not the key
 
