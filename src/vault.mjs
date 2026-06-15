@@ -1,37 +1,67 @@
-// Encrypted secret store. Secrets are AES-256-GCM encrypted at rest under a
-// 32-byte master key in ~/.keeper/master.key (0600) — never plaintext env vars,
-// never in a prompt. The vault file holds only ciphertext + IV + auth tag.
+// Encrypted secret store. Secrets are AES-256-GCM encrypted at rest, with the
+// secret NAME bound in as additional authenticated data (AAD) so a ciphertext
+// can't be swapped between names. The master key is either derived from a
+// passphrase (scrypt — never on disk, recommended) or a random key file in
+// ~/.keeper (0600 + a restrictive ACL on Windows). Decryption failures fail
+// CLOSED — a tampered/corrupt vault returns null, never a throw or garbage.
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { home, kpath } from './paths.mjs';
 
+// 0600 is a no-op on Windows (ACL-based) — strip inheritance + grant only the user.
+function lockdown(file) {
+  if (process.platform !== 'win32' || !process.env.USERNAME) return;
+  try { execFileSync('icacls', [file, '/inheritance:r', '/grant:r', `${process.env.USERNAME}:F`], { stdio: 'ignore' }); } catch {}
+}
+
+const _keyCache = new Map();
 function masterKey() {
-  const kf = kpath('master.key');
-  try { return Buffer.from(fs.readFileSync(kf, 'utf8').trim(), 'hex'); } catch {}
-  const key = crypto.randomBytes(32);
-  fs.mkdirSync(home(), { recursive: true });
-  fs.writeFileSync(kf, key.toString('hex'), { mode: 0o600 });
+  const ck = (process.env.KEEPER_HOME || '') + '|' + (process.env.KEEPER_PASSPHRASE || '');
+  if (_keyCache.has(ck)) return _keyCache.get(ck);
+  let key;
+  const pass = process.env.KEEPER_PASSPHRASE;
+  if (pass) {
+    // passphrase mode: the key is derived, never stored — only a salt is.
+    const sf = kpath('salt');
+    let salt;
+    try { salt = Buffer.from(fs.readFileSync(sf, 'utf8').trim(), 'hex'); }
+    catch { salt = crypto.randomBytes(16); fs.mkdirSync(home(), { recursive: true }); fs.writeFileSync(sf, salt.toString('hex'), { mode: 0o600 }); lockdown(sf); }
+    key = crypto.scryptSync(pass, salt, 32, { N: 16384, r: 8, p: 1 });
+  } else {
+    // key-file fallback: convenient, but the key sits on disk.
+    const kf = kpath('master.key');
+    try { key = Buffer.from(fs.readFileSync(kf, 'utf8').trim(), 'hex'); }
+    catch { key = crypto.randomBytes(32); fs.mkdirSync(home(), { recursive: true }); fs.writeFileSync(kf, key.toString('hex'), { mode: 0o600 }); lockdown(kf); }
+  }
+  _keyCache.set(ck, key);
   return key;
 }
 
-function encrypt(plain) {
+function encrypt(plain, aad) {
   const iv = crypto.randomBytes(12);
   const c = crypto.createCipheriv('aes-256-gcm', masterKey(), iv);
+  c.setAAD(Buffer.from(aad, 'utf8'));
   const ct = Buffer.concat([c.update(String(plain), 'utf8'), c.final()]);
   return { iv: iv.toString('hex'), tag: c.getAuthTag().toString('hex'), ct: ct.toString('hex') };
 }
 
-function decrypt(rec) {
+function decrypt(rec, aad) {
   const d = crypto.createDecipheriv('aes-256-gcm', masterKey(), Buffer.from(rec.iv, 'hex'));
+  d.setAAD(Buffer.from(aad, 'utf8'));
   d.setAuthTag(Buffer.from(rec.tag, 'hex'));
   return Buffer.concat([d.update(Buffer.from(rec.ct, 'hex')), d.final()]).toString('utf8');
 }
 
 const read = () => { try { return JSON.parse(fs.readFileSync(kpath('vault.json'), 'utf8')); } catch { return { secrets: {} }; } };
-const write = (v) => { fs.mkdirSync(home(), { recursive: true }); fs.writeFileSync(kpath('vault.json'), JSON.stringify(v, null, 2), { mode: 0o600 }); };
+function write(v) { fs.mkdirSync(home(), { recursive: true }); const f = kpath('vault.json'); fs.writeFileSync(f, JSON.stringify(v, null, 2), { mode: 0o600 }); lockdown(f); }
 
-export function putSecret(name, value) { const v = read(); v.secrets[name] = encrypt(value); write(v); }
-export function getSecret(name) { const r = read().secrets[name]; return r ? decrypt(r) : null; }
+export function putSecret(name, value) { const v = read(); v.secrets[name] = encrypt(value, name); write(v); }
+export function getSecret(name) {
+  const r = read().secrets[name];
+  if (!r) return null;
+  try { return decrypt(r, name); } catch { return null; } // fail closed: tampered / swapped / corrupt → null
+}
 export const hasSecret = (name) => !!read().secrets[name];
 export const listSecrets = () => Object.keys(read().secrets);
 export function removeSecret(name) { const v = read(); const had = !!v.secrets[name]; delete v.secrets[name]; write(v); return had; }

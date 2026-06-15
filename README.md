@@ -40,6 +40,19 @@ The agent dispatched `keeper exec <lease> …`; the key was decrypted inside kee
 | revocable | rotate everywhere | `keeper revoke <lease>` |
 | audited | no | every access, tamper-evident |
 
+## Security model
+
+keeper is a vault, so its own security is the point:
+
+- **Encrypted at rest** — AES-256-GCM, with the secret *name* bound in as AAD, so a ciphertext can't be swapped between names.
+- **Master key** — set `KEEPER_PASSPHRASE` to derive the key with **scrypt** (the key is *never written to disk* — only a salt is). Without it, keeper falls back to a random key file in `~/.keeper` (`0600`, plus a restrictive ACL on Windows). Use the passphrase for anything that matters.
+- **Leases are bearer tokens** — only `sha256(id)` is stored; the raw id is returned once, to you. Reading `leases.json` therefore can't redeem anything.
+- **Single-use is atomic** — redeem is a check-and-consume under a cross-process lock, so concurrent redeems can't double-spend a one-use lease.
+- **Fail-closed** — a tampered, swapped, or wrong-key entry returns null and denies; it never throws or leaks garbage.
+- **Tamper-evident audit** — every access is hash-chained (shared with warden) and logged by lease *fingerprint*, never the raw id.
+
+What it is **not**: a defense against an attacker who already has your passphrase / master key or full process memory — at that point they have the vault. keeper shrinks the *agent's* exposure (a lease, not the key; short-lived; scoped; audited); it doesn't replace OS-level isolation.
+
 ## Commands
 
 ```

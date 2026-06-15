@@ -3,11 +3,15 @@
 // egress point, and audits every access (tamper-evidently). Completes the
 // agent-security stack: warden contains the call, canon vets the tool, keeper
 // holds the keys.
+import crypto from 'node:crypto';
 import * as vault from './vault.mjs';
 import * as lease from './lease.mjs';
 import * as audit from './audit.mjs';
 
 export { vault, lease, audit };
+
+// Log a lease by fingerprint, never its raw id — the audit is on disk too.
+const fp = (id) => crypto.createHash('sha256').update(id).digest('hex').slice(0, 12);
 
 /** Store a secret (encrypted at rest). */
 export function addSecret(name, value) {
@@ -25,24 +29,24 @@ export function removeSecret(name) {
 export function grant(name, opts = {}) {
   if (!vault.hasSecret(name)) throw new Error(`no such secret: ${name}`);
   const l = lease.mintLease(name, opts);
-  audit.record({ event: 'grant', secret: name, lease: l.id, host: l.host, ttlS: opts.ttlS ?? 300, uses: opts.uses ?? 1 });
+  audit.record({ event: 'grant', secret: name, lease: fp(l.id), host: l.host, ttlS: opts.ttlS ?? 300, uses: opts.uses ?? 1 });
   return l;
 }
 
-/** Redeem a lease at the egress point → the secret, IF the lease is still valid
- *  (not expired, uses remaining, host in scope). A denial is audited and never
- *  consumes a use. */
+/** Redeem a lease at the egress point → the secret, IF the lease is still valid.
+ *  The check-and-consume is atomic (one winner per use); a denial or a broken
+ *  decrypt is audited and the call fails CLOSED (never throws, never leaks). */
 export function redeem(leaseId, { host } = {}) {
-  const c = lease.checkLease(leaseId, { host });
-  if (!c.ok) { audit.record({ event: 'deny', lease: leaseId, reason: c.reason, host: host || null }); return { ok: false, reason: c.reason }; }
+  const c = lease.redeemLease(leaseId, { host });
+  if (!c.ok) { audit.record({ event: 'deny', lease: fp(leaseId), reason: c.reason, host: host || null }); return { ok: false, reason: c.reason }; }
   const value = vault.getSecret(c.lease.secret);
-  lease.consumeLease(leaseId);
-  audit.record({ event: 'redeem', lease: leaseId, secret: c.lease.secret, host: host || null });
+  if (value == null) { audit.record({ event: 'deny', lease: fp(leaseId), reason: 'decrypt-failed', host: host || null }); return { ok: false, reason: 'decrypt-failed' }; }
+  audit.record({ event: 'redeem', lease: fp(leaseId), secret: c.lease.secret, host: host || null });
   return { ok: true, value, name: c.lease.secret };
 }
 
 export function revoke(leaseId) {
   const had = lease.revokeLease(leaseId);
-  audit.record({ event: 'revoke', lease: leaseId });
+  audit.record({ event: 'revoke', lease: fp(leaseId) });
   return had;
 }

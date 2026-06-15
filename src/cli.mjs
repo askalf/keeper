@@ -90,7 +90,7 @@ const T = {
   leases() {
     const ls = lease.listLeases();
     if (!ls.length) return (out(c(C.dim, 'no outstanding leases')), 0);
-    ls.forEach((l) => out(`${l.expired ? c(C.dim, '○') : c(C.grn, '●')} ${c(C.bold, l.id)} ${c(C.dim, `→ ${l.secret} · ${l.usesLeft} use(s)${l.expired ? ' · EXPIRED' : ''}${l.host ? ' · ' + l.host : ''}`)}`));
+    ls.forEach((l) => out(`${l.expired ? c(C.dim, '○') : c(C.grn, '●')} ${c(C.bold, l.fingerprint)} ${c(C.dim, `→ ${l.secret} · ${l.usesLeft} use(s)${l.expired ? ' · EXPIRED' : ''}${l.host ? ' · ' + l.host : ''}`)}`));
     return 0;
   },
   revoke() { if (!pos[0]) return (usage(), 2); out(revoke(pos[0]) ? `${c(C.grn, '✓')} revoked ${pos[0]}` : c(C.dim, `no such lease: ${pos[0]}`)); return 0; },
