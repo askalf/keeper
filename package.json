@@ -7,7 +7,10 @@
     "keeper": "./src/cli.mjs"
   },
   "exports": {
-    ".": "./src/index.mjs"
+    ".": "./src/index.mjs",
+    "./daemon": "./src/daemon.mjs",
+    "./client": "./src/client.mjs",
+    "./broker": "./src/broker.mjs"
   },
   "scripts": {
     "test": "node --test",

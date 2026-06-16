@@ -55,15 +55,23 @@ export function mintLease(secret, opts = {}) {
 /** Non-consuming validity check (by raw id). */
 export function checkLease(id, { host } = {}) { return evalLease(read()[sha256(id)], host); }
 
-/** Atomic check-AND-consume: at most one concurrent caller spends a use. */
-export function redeemLease(id, { host } = {}) {
+/** Atomic check-AND-consume: at most one concurrent caller spends a use.
+ *  `materialize(lease)` (optional) fetches the secret WHILE the lock is held —
+ *  if it returns null (decrypt-failed / no key), the use is NOT consumed, so a
+ *  broken decrypt never burns a use. Keeps check + fetch + consume atomic. */
+export function redeemLease(id, { host } = {}, materialize = null) {
   return withLock(() => {
     const leases = read(), h = sha256(id);
     const v = evalLease(leases[h], host);
     if (!v.ok) return v;
-    leases[h].usesLeft--; // record kept (0 → clear 'exhausted'); pruned on next mint
+    let value;
+    if (materialize) {
+      value = materialize(v.lease);
+      if (value == null) return { ok: false, reason: 'decrypt-failed' }; // do NOT consume
+    }
+    leases[h].usesLeft--; // commit the consume only after success; record kept (0 → 'exhausted'), pruned on next mint
     write(leases);
-    return { ok: true, lease: { ...v.lease } };
+    return { ok: true, lease: { ...v.lease }, value };
   });
 }
 

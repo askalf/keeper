@@ -38,12 +38,12 @@ export function grant(name, opts = {}) {
  *  The check-and-consume is atomic (one winner per use); a denial or a broken
  *  decrypt is audited and the call fails CLOSED (never throws, never leaks). */
 export function redeem(leaseId, { host } = {}) {
-  const c = lease.redeemLease(leaseId, { host });
+  // Decrypt happens INSIDE the atomic consume (the materialize callback), so a
+  // decrypt-failure denies WITHOUT burning a use.
+  const c = lease.redeemLease(leaseId, { host }, (l) => vault.getSecret(l.secret));
   if (!c.ok) { audit.record({ event: 'deny', lease: fp(leaseId), reason: c.reason, host: host || null }); return { ok: false, reason: c.reason }; }
-  const value = vault.getSecret(c.lease.secret);
-  if (value == null) { audit.record({ event: 'deny', lease: fp(leaseId), reason: 'decrypt-failed', host: host || null }); return { ok: false, reason: 'decrypt-failed' }; }
   audit.record({ event: 'redeem', lease: fp(leaseId), secret: c.lease.secret, host: host || null });
-  return { ok: true, value, name: c.lease.secret, upstream: c.lease.upstream, inject: c.lease.inject };
+  return { ok: true, value: c.value, name: c.lease.secret, upstream: c.lease.upstream, inject: c.lease.inject };
 }
 
 export function revoke(leaseId) {

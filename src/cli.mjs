@@ -4,6 +4,8 @@ import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { addSecret, removeSecret, grant, redeem, revoke, vault, lease, audit } from './index.mjs';
 import { startBroker } from './broker.mjs';
+import { startDaemon } from './daemon.mjs';
+import { redeemViaDaemon } from './client.mjs';
 import { keychainAvailable, keychainKind } from './keychain.mjs';
 
 const raw = process.argv.slice(2);
@@ -24,6 +26,9 @@ const C = { red: '\x1b[31m', grn: '\x1b[32m', yel: '\x1b[33m', dim: '\x1b[2m', b
 const c = (col, s) => (tty ? col + s + C.rst : s);
 const out = (s = '') => process.stdout.write(s + '\n');
 const err = (s) => process.stderr.write(s + '\n');
+// A doer with no master key sets KEEPER_DAEMON=1 → redeem/exec route through the
+// local redeem-daemon (which holds the key) instead of the vault.
+const viaDaemon = () => !!process.env.KEEPER_DAEMON;
 
 function usage() {
   out(`${c(C.bold, 'keeper')} — own your agent secrets · vault · lease · redeem · audit
@@ -41,6 +46,9 @@ function usage() {
   keeper broker [--port 8771]          run the egress-injection proxy: point your client's
                                        base URL at http://127.0.0.1:<port>/<lease> — the
                                        broker injects the secret upstream, the agent holds none
+  keeper serve [--socket <path>]       run the redeem-daemon (HOLDS the key) on a local socket;
+                                       a doer sets KEEPER_DAEMON=1 + KEEPER_SOCKET/_TOKEN and
+                                       redeems its leases without ever holding the master key
   keeper leases                        list outstanding leases
   keeper revoke <lease>                kill a lease
   keeper audit [--verify]              show the access log (--verify checks the hash chain)
@@ -101,21 +109,26 @@ const T = {
     if (on && !avail) { out(c(C.red, '  ⚠ requested but unavailable — keeper will fail closed')); return 1; }
     return 0;
   },
-  redeem() {
+  async redeem() {
     if (!pos[0]) return (usage(), 2);
-    const r = redeem(pos[0], { host: opt('--host', undefined) });
+    const r = viaDaemon() ? await redeemViaDaemon(pos[0], { host: opt('--host', undefined) }) : redeem(pos[0], { host: opt('--host', undefined) });
     if (!r.ok) { err(`${c(C.red, '✗')} denied: ${r.reason}`); return 1; }
     process.stdout.write(r.value); // raw, for piping — no newline
     return 0;
   },
-  exec() {
+  async exec() {
     if (!pos[0] || !post.length) return (usage(), 2);
     const as = opt('--as', null);
     if (!as || as === true) { err('keeper exec: --as <ENV_NAME> is required'); return 2; }
-    const r = redeem(pos[0], { host: opt('--host', undefined) });
+    const r = viaDaemon() ? await redeemViaDaemon(pos[0], { host: opt('--host', undefined) }) : redeem(pos[0], { host: opt('--host', undefined) });
     if (!r.ok) { err(`${c(C.red, '✗')} denied: ${r.reason}`); return 1; }
     const res = spawnSync(post[0], post.slice(1), { env: { ...process.env, [as]: r.value }, stdio: 'inherit' });
     return res.status ?? (res.error ? 1 : 0);
+  },
+  serve() {
+    const sp = opt('--socket', undefined);
+    startDaemon({ ...(sp && sp !== true ? { socketPath: sp } : {}), onLog: (m) => err(c(C.dim, 'keeper: ' + m)) });
+    return new Promise(() => {}); // run until killed
   },
   leases() {
     const ls = lease.listLeases();
@@ -142,5 +155,5 @@ function eventColor(ev) {
 }
 
 if (!cmd || cmd === '-h' || cmd === '--help' || !T[cmd]) { usage(); process.exit(cmd && !['-h', '--help'].includes(cmd) ? 2 : 0); }
-if (cmd === 'broker') T.broker(); // long-running; keep the event loop alive
-else process.exit(T[cmd]());
+if (cmd === 'broker' || cmd === 'serve') T[cmd](); // long-running; keep the event loop alive
+else Promise.resolve(T[cmd]()).then((code) => process.exit(code ?? 0));

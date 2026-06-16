@@ -19,6 +19,13 @@ First public release — own your agent secrets: hand agents leases, not keys.
 - **Egress broker** — point an agent's HTTP client at `keeper broker` and the
   real key is injected at the network boundary, scoped to one upstream, with a
   per-lease path allowlist and rate cap. The secret never enters the agent.
+- **Redeem-daemon** (`keeper serve`, `@askalf/keeper/daemon` + `/client`) — a
+  long-lived local process that HOLDS the master key and answers lease→secret
+  over a local socket (unix domain / Windows named pipe; token-gated, never TCP).
+  A doer (or a remote agent) sets `KEEPER_DAEMON=1` + `KEEPER_SOCKET` +
+  `KEEPER_DAEMON_TOKEN` and redeems its leases **without ever holding the master
+  key** — the no-key-on-device counterpart to the broker, for credentials a tool
+  consumes directly (e.g. a `GIT_ASKPASS` that runs `keeper redeem`).
 - **exec** — `keeper exec <lease> --as ENV -- <cmd>` runs a child with the
   secret in *its* environment only.
 - **Tamper-evident audit** — every grant / redeem / deny / revoke is hash-chained
