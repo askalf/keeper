@@ -67,6 +67,16 @@ Both are enforced **before** the secret is redeemed — an out-of-scope or over-
 | revocable | rotate everywhere | `keeper revoke <lease>` |
 | audited | no | every access, tamper-evident |
 
+## Dispatching to a fleet
+
+A platform that runs agents on remote devices shouldn't ship a long-lived key to each one — that's how OpenClaw leaked ~135k of them. Ship a **lease** instead:
+
+- the **control plane** stores the secret in keeper and grants a scoped, short-lived lease per task (`--upstream`, `--paths`, `--rate`, `--ttl`, `--uses`);
+- the **device** receives only the lease id and runs through `keeper broker` — the key is injected at egress, never written to the device;
+- a compromised device yields a *lease* (scoped, expiring, revocable), not a key. `keeper revoke <lease>` kills it instantly — no production-key rotation.
+
+See it end to end: `npm run demo:platform`.
+
 ## Security model
 
 keeper is a vault, so its own security is the point:
