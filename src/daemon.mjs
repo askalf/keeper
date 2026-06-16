@@ -56,7 +56,10 @@ export function startDaemon({ socketPath = keeperSocket(), infoFile = daemonInfo
     sock.on('error', () => {});
   };
 
-  if (process.platform !== 'win32') { try { fs.unlinkSync(socketPath); } catch {} } // clear stale socket
+  if (process.platform !== 'win32') {
+    try { fs.mkdirSync(path.dirname(socketPath), { recursive: true }); } catch {} // ensure the socket dir exists
+    try { fs.unlinkSync(socketPath); } catch {} // clear a stale socket
+  }
   const server = net.createServer(onConnection);
   server.on('error', (e) => onLog('listen error: ' + e.message));
   server.listen(socketPath, () => {
