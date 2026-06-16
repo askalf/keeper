@@ -8,7 +8,10 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import { home, kpath } from './paths.mjs';
 
-const sha256 = (s) => crypto.createHash('sha256').update(s).digest('hex');
+// Coerce so a non-string lease id (a malformed/hostile id arriving at the broker
+// from the URL) hashes to a value that simply won't match — redeem/revoke fail
+// CLOSED ('unknown' / false) instead of throwing at the egress point.
+const sha256 = (s) => crypto.createHash('sha256').update(typeof s === 'string' ? s : String(s ?? '')).digest('hex');
 const read = () => { try { return JSON.parse(fs.readFileSync(kpath('leases.json'), 'utf8')); } catch { return {}; } };
 const write = (l) => { fs.mkdirSync(home(), { recursive: true }); fs.writeFileSync(kpath('leases.json'), JSON.stringify(l, null, 2), { mode: 0o600 }); };
 
@@ -30,7 +33,8 @@ function evalLease(l, host, now = Date.now()) {
   return { ok: true, lease: l };
 }
 
-export function mintLease(secret, { ttlS = 300, uses = 1, host = null, upstream = null, inject = null, rate = null, paths = null } = {}) {
+export function mintLease(secret, opts = {}) {
+  const { ttlS = 300, uses = 1, host = null, upstream = null, inject = null, rate = null, paths = null } = opts || {};
   const id = 'lease_' + crypto.randomBytes(18).toString('hex'); // 144-bit bearer token — returned, never stored raw
   return withLock(() => {
     const leases = read(), now = Date.now();

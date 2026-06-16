@@ -19,7 +19,7 @@ const DROP = new Set([
   'trailer', 'transfer-encoding', 'upgrade', 'content-length', 'authorization', 'x-api-key', 'cookie',
 ]);
 
-const fpLease = (id) => crypto.createHash('sha256').update(id).digest('hex').slice(0, 12);
+const fpLease = (id) => crypto.createHash('sha256').update(typeof id === 'string' ? id : String(id ?? '')).digest('hex').slice(0, 12);
 const send = (res, code, obj) => { res.statusCode = code; res.setHeader('content-type', 'application/json'); res.end(JSON.stringify(obj)); };
 
 function injectAuth(headers, inject, secret) {

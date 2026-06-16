@@ -11,7 +11,7 @@ import * as audit from './audit.mjs';
 export { vault, lease, audit };
 
 // Log a lease by fingerprint, never its raw id — the audit is on disk too.
-const fp = (id) => crypto.createHash('sha256').update(id).digest('hex').slice(0, 12);
+const fp = (id) => crypto.createHash('sha256').update(typeof id === 'string' ? id : String(id ?? '')).digest('hex').slice(0, 12);
 
 /** Store a secret (encrypted at rest). */
 export function addSecret(name, value) {
@@ -27,6 +27,7 @@ export function removeSecret(name) {
 
 /** Mint a lease for a secret. The agent gets THIS (the id), never the secret. */
 export function grant(name, opts = {}) {
+  opts = opts || {};
   if (!vault.hasSecret(name)) throw new Error(`no such secret: ${name}`);
   const l = lease.mintLease(name, opts);
   audit.record({ event: 'grant', secret: name, lease: fp(l.id), host: l.host, upstream: l.upstream, rate: l.rate, paths: l.paths, ttlS: opts.ttlS ?? 300, uses: opts.uses ?? 1 });

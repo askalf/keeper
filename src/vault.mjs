@@ -51,14 +51,14 @@ function masterKey() {
 function encrypt(plain, aad) {
   const iv = crypto.randomBytes(12);
   const c = crypto.createCipheriv('aes-256-gcm', masterKey(), iv);
-  c.setAAD(Buffer.from(aad, 'utf8'));
+  c.setAAD(Buffer.from(String(aad), 'utf8')); // String() so a non-string secret name can't throw on Buffer.from
   const ct = Buffer.concat([c.update(String(plain), 'utf8'), c.final()]);
   return { iv: iv.toString('hex'), tag: c.getAuthTag().toString('hex'), ct: ct.toString('hex') };
 }
 
 function decrypt(rec, aad) {
   const d = crypto.createDecipheriv('aes-256-gcm', masterKey(), Buffer.from(rec.iv, 'hex'));
-  d.setAAD(Buffer.from(aad, 'utf8'));
+  d.setAAD(Buffer.from(String(aad), 'utf8'));
   d.setAuthTag(Buffer.from(rec.tag, 'hex'));
   return Buffer.concat([d.update(Buffer.from(rec.ct, 'hex')), d.final()]).toString('utf8');
 }
@@ -66,12 +66,16 @@ function decrypt(rec, aad) {
 const read = () => { try { return JSON.parse(fs.readFileSync(kpath('vault.json'), 'utf8')); } catch { return { secrets: {} }; } };
 function write(v) { fs.mkdirSync(home(), { recursive: true }); const f = kpath('vault.json'); fs.writeFileSync(f, JSON.stringify(v, null, 2), { mode: 0o600 }); lockdown(f); }
 
-export function putSecret(name, value) { const v = read(); v.secrets[name] = encrypt(value, name); write(v); }
+// Coerce the name to a string KEY (not just the AAD): a Symbol object-key isn't
+// stringified, so JSON.stringify would silently DROP the secret on write — worse
+// than a throw for a vault. String() makes every name serialize and round-trip.
+export function putSecret(name, value) { name = String(name); const v = read(); v.secrets[name] = encrypt(value, name); write(v); }
 export function getSecret(name) {
+  name = String(name);
   const r = read().secrets[name];
   if (!r) return null;
   try { return decrypt(r, name); } catch { return null; } // fail closed: tampered / swapped / corrupt → null
 }
-export const hasSecret = (name) => !!read().secrets[name];
+export const hasSecret = (name) => !!read().secrets[String(name)];
 export const listSecrets = () => Object.keys(read().secrets);
-export function removeSecret(name) { const v = read(); const had = !!v.secrets[name]; delete v.secrets[name]; write(v); return had; }
+export function removeSecret(name) { name = String(name); const v = read(); const had = !!v.secrets[name]; delete v.secrets[name]; write(v); return had; }
