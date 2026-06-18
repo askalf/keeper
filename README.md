@@ -57,6 +57,8 @@ For each call the broker redeems the lease (atomic + audited), makes the **real*
 
 Both are enforced **before** the secret is redeemed — an out-of-scope or over-rate request gets `403` / `429`, consumes no use, and is audited.
 
+> **Windows / Git Bash:** MSYS auto-rewrites an argument that looks like a Unix absolute path, so a bare `--paths "/v1/models"` reaches keeper as `C:/Program Files/Git/v1/models` and silently never matches (every call then `403`s on `path`). A comma-list like `"/v1/chat/*,/v1/models"` is left alone, which is why it works. Prefix the run with `MSYS_NO_PATHCONV=1` (use drive-letter paths for any file args), or call keeper from PowerShell/cmd. Not a keeper bug — it mangles the arg before keeper sees it.
+
 ## Why a lease, not the key
 
 | | a raw key in env / prompt | a keeper lease |
