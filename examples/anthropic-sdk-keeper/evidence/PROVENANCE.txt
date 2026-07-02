@@ -1,0 +1,9 @@
+﻿Run captured: 2026-07-02T23:52:39Z
+OS: Windows 11 x86_64 (PowerShell)
+node: v22.22.0
+keeper: commit b6e6c0d (branched from master b6e6c0d)
+
+Pinned dependency versions (npm ls, top level):
+anthropic-sdk-keeper-example@ C:\Users\masterm1nd\Desktop\codebase\keeper\examples\anthropic-sdk-keeper
+`-- @anthropic-ai/sdk@0.110.0
+

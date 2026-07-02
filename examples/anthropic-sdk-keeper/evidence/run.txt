@@ -1,0 +1,34 @@
+﻿
+> demo
+> node agent_leased_flow.mjs
+
+1. operator: keeper add anthropic:prod  (encrypted at rest in the vault)
+2. operator: grant a scoped lease — this upstream only, /v1/messages only, 120s, 5 uses
+   [broker] keeper broker on http://127.0.0.1:52026 — point your client base URL at http://127.0.0.1:52026/<lease>
+3. agent: a real @anthropic-ai/sdk messages.create call — holding only the placeholder
+   [broker] POST 1e800789def5 → 127.0.0.1:52025/v1/messages 200
+
+── proofs ─────────────────────────────────────────────────────────
+   ✓ the agent completed its call through the leased channel
+   ✓ upstream saw the REAL key in x-api-key — injected by the broker at egress
+   ✓ the agent's placeholder x-api-key header was STRIPPED, never forwarded
+   ✓ the SDK's own protocol headers (anthropic-version) passed through untouched
+   ✓ the real key appears NOWHERE in the agent process's env
+   ✓ the upstream reflected the key; the agent received [keeper:redacted] instead
+   ✓ the real key appears nowhere in anything the agent received
+   ✓ off-allowlist path (/v1/organizations/keys) → 403, audited
+   ✓ the denial consumed no use
+4. operator: keeper revoke — kill this agent's access, key unrotated
+   ✓ post-revoke call → 403 denied
+   ✓ nothing further ever reached the upstream
+   ✓ audit chain verifies intact (7 entries)
+   ✓ audit records 'add'
+   ✓ audit records 'grant'
+   ✓ audit records 'redeem'
+   ✓ audit records 'sanitize'
+   ✓ audit records 'deny'
+   ✓ audit records 'revoke'
+
+audit trail: add → grant → redeem → sanitize → deny → revoke → deny
+
+ANTHROPIC_SDK_KEEPER_PASS
