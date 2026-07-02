@@ -1,0 +1,13 @@
+{
+  "name": "anthropic-sdk-keeper-example",
+  "private": true,
+  "type": "module",
+  "description": "Run an Anthropic SDK client whose API key never enters its env — model calls go through a keeper broker lease (x-api-key injection)",
+  "scripts": {
+    "demo": "node agent_leased_flow.mjs",
+    "verify": "node verify_audit.mjs keeper-home"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "0.110.0"
+  }
+}
