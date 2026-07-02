@@ -1,0 +1,8 @@
+1. verify the untouched audit
+   ✓ chain + authenticated tip intact (6 entries)
+2. tamper mid-chain: flip one byte of an early entry
+   ✓ edited chain FAILS verification
+3. truncate the tail: drop the last entry, keep everything else
+   ✓ truncated chain FAILS verification (audit-truncated-or-spliced)
+
+AUDIT_VERIFY_PASS
