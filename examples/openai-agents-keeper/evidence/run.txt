@@ -1,0 +1,26 @@
+1. operator: keeper add openai:prod  (encrypted at rest in the vault)
+2. operator: grant a scoped lease — this upstream only, /v1/chat/completions only, 120s, 5 uses
+   [broker] keeper broker on http://127.0.0.1:50065 — point your client base URL at http://127.0.0.1:50065/<lease>
+3. agent: a real @openai/agents Agent makes a real model call — holding only the placeholder
+   [broker] POST 67f22df0aa49 → 127.0.0.1:50064/v1/chat/completions 200
+
+── proofs ─────────────────────────────────────────────────────────
+   ✓ the agent completed its run through the leased channel
+   ✓ upstream saw the REAL key — injected by the broker at egress
+   ✓ the agent's placeholder auth header was STRIPPED, never forwarded
+   ✓ the real key appears NOWHERE in the agent process's env
+   ✓ off-allowlist path (/v1/admin/keys) → 403, audited
+   ✓ the denial consumed no use
+4. operator: keeper revoke — kill this agent's access, key unrotated
+   ✓ post-revoke call → 403 denied
+   ✓ nothing further ever reached the upstream
+   ✓ audit chain verifies intact (6 entries)
+   ✓ audit records 'add'
+   ✓ audit records 'grant'
+   ✓ audit records 'redeem'
+   ✓ audit records 'deny'
+   ✓ audit records 'revoke'
+
+audit trail: add → grant → redeem → deny → revoke → deny
+
+OPENAI_AGENTS_KEEPER_PASS

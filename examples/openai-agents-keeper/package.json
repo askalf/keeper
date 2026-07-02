@@ -1,0 +1,14 @@
+{
+  "name": "openai-agents-keeper-example",
+  "private": true,
+  "type": "module",
+  "description": "Run an OpenAI Agents SDK agent whose API key never enters its env — model calls go through a keeper broker lease",
+  "scripts": {
+    "demo": "node agent_leased_flow.mjs",
+    "verify": "node verify_audit.mjs keeper-home"
+  },
+  "dependencies": {
+    "@openai/agents": "0.12.0",
+    "openai": "6.9.0"
+  }
+}

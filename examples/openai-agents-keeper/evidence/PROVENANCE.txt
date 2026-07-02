@@ -1,0 +1,10 @@
+Run captured: 2026-07-02T00:25:42Z
+OS: Windows 11 x86_64 (Git Bash / MINGW64)
+node: v22.22.0
+keeper: commit 6152875 (master at the time of capture)
+
+Pinned dependency versions (npm ls, top level):
+openai-agents-keeper-example@ C:\Users\masterm1nd\Desktop\codebase\keeper\examples\openai-agents-keeper
++-- @openai/agents@0.12.0
+`-- openai@6.9.0
+
