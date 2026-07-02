@@ -64,6 +64,17 @@ All three are enforced **before** the secret is redeemed — an out-of-scope, ov
 
 > **Windows / Git Bash:** MSYS auto-rewrites an argument that looks like a Unix absolute path, so a bare `--paths "/v1/models"` reaches keeper as `C:/Program Files/Git/v1/models` and silently never matches (every call then `403`s on `path`). A comma-list like `"/v1/chat/*,/v1/models"` is left alone, which is why it works. Prefix the run with `MSYS_NO_PATHCONV=1` (use drive-letter paths for any file args), or call keeper from PowerShell/cmd. Not a keeper bug — it mangles the arg before keeper sees it.
 
+## Redeem-daemon — no master key on the redeeming side
+
+The broker covers HTTP APIs. For credentials a tool consumes *directly* — git over `GIT_ASKPASS`, a CLI that reads a token — the redeem happens in the agent's own process tree, and a local `keeper redeem` would need the master key there. The **redeem-daemon** removes that requirement:
+
+```bash
+keeper serve &                          # long-lived local process — HOLDS the master key
+KEEPER_DAEMON=1 keeper redeem "$LEASE"  # this side holds NO key, NO passphrase
+```
+
+With `KEEPER_DAEMON=1`, `keeper redeem` / `keeper exec` route lease→secret over a **local socket** (unix domain socket / Windows named pipe — token-gated, owner-only `0600`, never TCP) instead of opening the vault. Same-user callers need zero config — both sides share the default socket path, and the client reads the capability token from the daemon's `0600` info file; a **sandboxed worker** is instead handed only `KEEPER_SOCKET` + `KEEPER_DAEMON_TOKEN` (pin one via env before `serve`) and never reads keeper's home at all. Either way the redeeming process never holds the master key: compromise it and you get its leases — scoped, expiring, revocable — not the vault. This is how a control plane hands git credentials to sandboxed workers: a `GIT_ASKPASS` helper that runs `keeper redeem`, with zero token bytes on disk and zero key material in the worker.
+
 ## Why a lease, not the key
 
 | | a raw key in env / prompt | a keeper lease |
@@ -78,7 +89,7 @@ All three are enforced **before** the secret is redeemed — an out-of-scope, ov
 
 A platform that runs agents on remote devices shouldn't ship a long-lived key to each one — that's how OpenClaw leaked ~135k of them. Ship a **lease** instead:
 
-- the **control plane** stores the secret in keeper and grants a scoped, short-lived lease per task (`--upstream`, `--paths`, `--rate`, `--ttl`, `--uses`);
+- the **control plane** stores the secret in keeper and grants a scoped, short-lived lease per task (`--upstream`, `--paths`, `--rate`, `--concurrency`, `--ttl`, `--uses`);
 - the **device** receives only the lease id and runs through `keeper broker` — the key is injected at egress, never written to the device;
 - a compromised device yields a *lease* (scoped, expiring, revocable), not a key. `keeper revoke <lease>` kills it instantly — no production-key rotation.
 
@@ -98,7 +109,8 @@ keeper is a vault, so its own security is the point:
 - **Leases are bearer tokens** — only `sha256(id)` is stored; the raw id is returned once, to you. Reading `leases.json` therefore can't redeem anything.
 - **Single-use is atomic** — redeem is a check-and-consume under a cross-process lock, so concurrent redeems can't double-spend a one-use lease.
 - **Fail-closed** — a tampered, swapped, or wrong-key entry returns null and denies; it never throws or leaks garbage.
-- **Tamper-evident audit** — every access is hash-chained (shared with warden) and logged by lease *fingerprint*, never the raw id.
+- **Tamper-evident audit** — every access is hash-chained (shared with warden) and logged by lease *fingerprint*, never the raw id. An **authenticated tip** (HMAC under a subkey of the master key) commits to the chain's length and last hash, so *truncating* or *splicing* the log is caught — not just editing an entry.
+- **Reflected secrets can't ride back in** — the broker redacts any occurrence of the injected secret from relayed response headers and bodies and audits it (`sanitize`), so an echoing or misconfigured upstream can't hand the raw key back into the agent's context.
 
 What it is **not**: a defense against an attacker who already has your passphrase / master key or full process memory — at that point they have the vault. keeper shrinks the *agent's* exposure (a lease, not the key; short-lived; scoped; audited); it doesn't replace OS-level isolation.
 
@@ -107,10 +119,13 @@ What it is **not**: a defense against an attacker who already has your passphras
 ```
 keeper add <name>                  store a secret (stdin, or --value=)
 keeper ls                          list secret names (never values)
-keeper grant <name> [--ttl --uses --host --upstream --inject]   mint a lease
+keeper grant <name> [--ttl --uses --host]                        mint a lease
+              [--upstream --inject --paths --rate --concurrency]  (broker scoping)
 keeper redeem <lease> [--host]     exchange a valid lease for the secret (egress side)
 keeper exec <lease> --as <ENV> -- <cmd...>  redeem + run <cmd> with the secret in its env only
 keeper broker [--port 8771]        egress-injection proxy (base-URL swap, zero key in the agent)
+keeper serve [--socket <path>]     redeem-daemon: holds the master key, answers lease→secret
+                                   over a local socket (KEEPER_DAEMON=1 on the keyless side)
 keeper leases · keeper revoke <lease> · keeper rm <name>
 keeper audit [--verify]            the access log, optionally chain-verified
 keeper keychain                    master-key backend status (KEEPER_KEYCHAIN=1 to use the OS keychain)
