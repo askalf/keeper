@@ -1,5 +1,7 @@
 # keeper
 
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/askalf/keeper/badge)](https://scorecard.dev/viewer/?uri=github.com/askalf/keeper)
+
 > _keeper — **own your agent secrets**. An encrypted vault that hands agents scoped, short-lived, single-use leases instead of raw keys. Part of **[Own Your Stack](https://github.com/askalf)** — own your AI infrastructure instead of renting it by the token._
 
 Agents need credentials — API keys, tokens, passwords — to do anything useful. Today they get them the worst possible way: a long-lived key stuffed into an environment variable or, worse, into the prompt. OpenClaw leaked the keys of ~135k exposed instances exactly this way. A key in the model's context is a key in every log, every trace, and every place a poisoned tool can read.
