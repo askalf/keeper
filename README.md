@@ -77,6 +77,16 @@ KEEPER_DAEMON=1 keeper redeem "$LEASE"  # this side holds NO key, NO passphrase
 
 With `KEEPER_DAEMON=1`, `keeper redeem` / `keeper exec` route lease→secret over a **local socket** (unix domain socket / Windows named pipe — token-gated, owner-only `0600`, never TCP) instead of opening the vault. Same-user callers need zero config — both sides share the default socket path, and the client reads the capability token from the daemon's `0600` info file; a **sandboxed worker** is instead handed only `KEEPER_SOCKET` + `KEEPER_DAEMON_TOKEN` (pin one via env before `serve`) and never reads keeper's home at all. Either way the redeeming process never holds the master key: compromise it and you get its leases — scoped, expiring, revocable — not the vault. This is how a control plane hands git credentials to sandboxed workers: a `GIT_ASKPASS` helper that runs `keeper redeem`, with zero token bytes on disk and zero key material in the worker.
 
+## Examples — real SDKs, zero keys in the agent
+
+Three end-to-end examples, each running a genuine client with a credential that never enters the agent's context:
+
+| Example | Shows |
+|---|---|
+| [`examples/anthropic-sdk-keeper`](examples/anthropic-sdk-keeper) | the **Anthropic SDK** (`@anthropic-ai/sdk`) making a real `messages.create` call through the broker — `x-api-key` injected at egress |
+| [`examples/openai-agents-keeper`](examples/openai-agents-keeper) | a real **OpenAI Agents SDK** agent run loop with its model calls brokered through a lease |
+| [`examples/mcp-keeper`](examples/mcp-keeper) | an **MCP server** whose tools return *leases, not keys* — the "where does the key live?" answer for every credentialed MCP server |
+
 ## Why a lease, not the key
 
 | | a raw key in env / prompt | a keeper lease |
