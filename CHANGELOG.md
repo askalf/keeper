@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1
+
+- **Renamed: `@askalf/keeper` → `@askalf/strongroom`** (npm-publishable name; `keeper` is squatted unscoped and the registry create-policy blocks colliding scoped names). GitHub repo becomes `askalf/strongroom` (old URLs redirect). Legacy `keeper` bin alias retained alongside the new `strongroom` bin; `KEEPER_*` env vars and `~/.keeper` unchanged.
+
 All notable changes to **@askalf/keeper** are documented here. The format is
 based on [Keep a Changelog](https://keepachangelog.com/), and this project
 adheres to [Semantic Versioning](https://semver.org/).
