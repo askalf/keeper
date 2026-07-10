@@ -29,7 +29,7 @@ delete process.env.KEEPER_PASSPHRASE;
 
 const { addSecret, grant, redeem, audit, lease } = await import('../src/index.mjs');
 const { startBroker } = await import('../src/broker.mjs');
-const { GENESIS, hashOf } = await import('@askalf/warden/audit');
+const { GENESIS, hashOf } = await import('@askalf/redstamp/audit');
 
 const listen = (s) => new Promise((r) => s.on('listening', () => r(s.address().port)));
 
