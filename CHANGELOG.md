@@ -19,6 +19,15 @@ adheres to [Semantic Versioning](https://semver.org/).
   ceiling (unchanged behavior). Zero, negative, and non-numeric `--ttl` /
   `--uses` are now always rejected — a `NaN` previously minted a lease that
   never expired and never exhausted. (#29)
+- **Broker upstream timeout** — the broker's upstream request is now bounded
+  (default **30 s** to first response headers; `keeper broker --timeout <ms>`,
+  `KEEPER_BROKER_TIMEOUT_MS`, or `startBroker({ timeoutMs })`). A black-hole
+  upstream gets a structured `504` (audited as `deny`/`timeout`, leaking
+  neither secret nor raw lease id) instead of hanging indefinitely — before
+  this, a hung upstream pinned its per-lease `--concurrency` slot forever and
+  could permanently wedge a concurrency-capped lease until a broker restart.
+  A client that disconnects mid-stream now also aborts the upstream request,
+  freeing the upstream socket. (#27)
 - **Master-key rotation** — `keeper rekey [--to passphrase|keychain|file]`
   re-encrypts every secret under a fresh master key, optionally migrating
   between key stores (a passphrase target reads `KEEPER_NEW_PASSPHRASE`).
