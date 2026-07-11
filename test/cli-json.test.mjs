@@ -9,7 +9,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-const HOME = path.join(os.tmpdir(), 'keeper-clijson-' + process.pid);
+const HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'keeper-clijson-')); // 0700 + unpredictable (CodeQL js/insecure-temporary-file)
 process.env.KEEPER_HOME = HOME;
 const { addSecret } = await import('../src/index.mjs');
 
