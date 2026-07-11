@@ -19,7 +19,7 @@
     "demo:platform": "node demo/platform.mjs"
   },
   "dependencies": {
-    "@askalf/warden": "github:askalf/warden#354e1b1ab552c60124b3e8f68cdb52e357937f73"
+    "@askalf/redstamp": "github:askalf/redstamp#3da60b9d720cb3f152f3db906673be0a2f8116b7"
   },
   "keywords": [
     "ai-agents",

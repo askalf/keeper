@@ -12,7 +12,7 @@
 // without the master key, so truncating or splicing the log is now detectable.
 import crypto from 'node:crypto';
 import fs from 'node:fs';
-import { ChainedFileAudit, verifyAuditFile } from '@askalf/warden/audit';
+import { ChainedFileAudit, verifyAuditFile } from '@askalf/redstamp/audit';
 import * as vault from './vault.mjs';
 import { home, kpath } from './paths.mjs';
 
