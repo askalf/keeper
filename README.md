@@ -22,7 +22,7 @@ Completes the agent-security stack: **redstamp** contains the call · **truecopy
 
 ## Quick start
 
-> Not yet on npm — installs straight from GitHub: `npm i -g github:askalf/strongroom` (or prefix any command below with `npx -y github:askalf/strongroom`).
+> Install: `npm i -g @askalf/strongroom` (or run any command below with `npx -y @askalf/strongroom`). Also installable straight from GitHub: `npm i -g github:askalf/strongroom`.
 
 ```bash
 echo "sk-live-…" | strongroom add OPENAI_API_KEY          # stored encrypted
