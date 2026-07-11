@@ -1,6 +1,9 @@
 # strongroom
 
+[![ci](https://github.com/askalf/strongroom/actions/workflows/ci.yml/badge.svg)](https://github.com/askalf/strongroom/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/askalf/strongroom/actions/workflows/codeql.yml/badge.svg)](https://github.com/askalf/strongroom/actions/workflows/codeql.yml)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/askalf/strongroom/badge)](https://scorecard.dev/viewer/?uri=github.com/askalf/strongroom)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 > _strongroom — **own your agent secrets**. An encrypted vault that hands agents scoped, short-lived, single-use leases instead of raw keys. Part of **[Own Your Stack](https://github.com/askalf)** — own your AI infrastructure instead of renting it by the token._
 
