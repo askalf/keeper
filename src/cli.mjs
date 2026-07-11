@@ -45,9 +45,11 @@ function usage() {
   keeper redeem <lease> [--host <h>]   exchange a valid lease for the secret (egress side)
   keeper exec <lease> --as <ENV> [--host <h>] -- <cmd...>
                                        redeem + run <cmd> with the secret in its env only
-  keeper broker [--port 8771]          run the egress-injection proxy: point your client's
+  keeper broker [--port 8771] [--timeout <ms>=30000]
+                                       run the egress-injection proxy: point your client's
                                        base URL at http://127.0.0.1:<port>/<lease> — the
                                        broker injects the secret upstream, the agent holds none
+                                       (--timeout bounds each upstream call; also KEEPER_BROKER_TIMEOUT_MS)
   keeper serve [--socket <path>]       run the redeem-daemon (HOLDS the key) on a local socket;
                                        a doer sets KEEPER_DAEMON=1 + KEEPER_SOCKET/_TOKEN and
                                        redeems its leases without ever holding the master key
@@ -102,7 +104,8 @@ const T = {
   broker() {
     const port = Number(opt('--port', 8771));
     const host = opt('--host', '127.0.0.1');
-    startBroker({ port, host, onLog: (m) => err(c(C.dim, 'keeper: ' + m)) });
+    const timeoutMs = Number(opt('--timeout', 0)) || 0; // 0 → KEEPER_BROKER_TIMEOUT_MS, then the 30s default
+    startBroker({ port, host, timeoutMs, onLog: (m) => err(c(C.dim, 'keeper: ' + m)) });
     return new Promise(() => {}); // run until killed
   },
   rekey() {

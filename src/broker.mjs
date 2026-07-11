@@ -128,7 +128,11 @@ async function readBody(req) {
   return chunks.length ? Buffer.concat(chunks) : undefined;
 }
 
-export function startBroker({ port = 8771, host = '127.0.0.1', onLog = () => {} } = {}) {
+export function startBroker({ port = 8771, host = '127.0.0.1', onLog = () => {}, timeoutMs = 0 } = {}) {
+  // Time-to-response-headers bound on the upstream request. 0 / unset falls
+  // through to KEEPER_BROKER_TIMEOUT_MS, then a 30s default; an explicit large
+  // value opts out for slow legitimate upstreams.
+  const upstreamTimeoutMs = Number(timeoutMs) || Number(process.env.KEEPER_BROKER_TIMEOUT_MS) || 30000;
   const server = http.createServer(async (req, res) => {
     try {
       if (req.url === '/' || req.url === '/healthz') return send(res, 200, { ok: true, service: 'keeper-broker' });
@@ -175,7 +179,31 @@ export function startBroker({ port = 8771, host = '127.0.0.1', onLog = () => {} 
       headers['accept-encoding'] = 'identity'; // uncompressed response — required for the secret scan below
       injectAuth(headers, r.inject, r.value); // the only place the real secret touches the request
 
-      const up = await fetch(url, { method: req.method, headers, body, redirect: 'manual', duplex: body ? 'half' : undefined });
+      // Bound the upstream call. Without this a black-hole upstream (accepts the
+      // socket, never sends headers) holds the request open indefinitely — and
+      // since the concurrency slot above is only released when `res` closes, a
+      // patient client pointed at a hung upstream would wedge a concurrency-
+      // capped lease PERMANENTLY (N hung requests → every later call 429s until
+      // the broker restarts). The use is already, correctly, spent — the secret
+      // was injected and the request left the box; this only bounds the hang.
+      // The timer governs time-to-headers; once streaming, the client-disconnect
+      // abort below takes over (a vanished agent frees the upstream stream too).
+      const ac = new AbortController();
+      let timedOut = false;
+      const timer = setTimeout(() => { timedOut = true; ac.abort(); }, upstreamTimeoutMs);
+      res.on('close', () => ac.abort());
+      let up;
+      try {
+        up = await fetch(url, { method: req.method, headers, body, redirect: 'manual', duplex: body ? 'half' : undefined, signal: ac.signal });
+      } catch (e) {
+        if (timedOut) {
+          audit.record({ event: 'deny', lease: fp, reason: 'timeout', via: 'broker' });
+          onLog(`${req.method} ${fp} → ${new URL(url).host}${canon.path} timeout after ${upstreamTimeoutMs}ms`);
+          return send(res, 504, { error: 'keeper broker: upstream timeout' }); // never the secret or raw lease id
+        }
+        if (res.destroyed || res.writableEnded) return; // client hung up first — no one left to answer
+        throw e; // → the existing 502 contract below
+      } finally { clearTimeout(timer); }
       onLog(`${req.method} ${fp} → ${new URL(url).host}${canon.path} ${up.status}`); // never the secret or raw lease
 
       // Relay the response, redacting the secret anywhere the upstream reflected
@@ -191,8 +219,13 @@ export function startBroker({ port = 8771, host = '127.0.0.1', onLog = () => {} 
       });
       if (headerHit) audit.record({ event: 'sanitize', lease: fp, where: 'header', via: 'broker' });
       if (!up.body) return res.end();
-      if (!scan) return void Readable.fromWeb(up.body).pipe(res);
-      Readable.fromWeb(up.body)
+      // The client-disconnect abort above errors this stream mid-relay (as does
+      // an upstream reset) — without a handler that's an uncaught 'error' that
+      // takes the whole broker down. There's nothing left to relay: just stop.
+      const upBody = Readable.fromWeb(up.body);
+      upBody.on('error', () => res.destroy());
+      if (!scan) return void upBody.pipe(res);
+      upBody
         .pipe(redactStream(Buffer.from(scan), () => audit.record({ event: 'sanitize', lease: fp, where: 'body', via: 'broker' })))
         .pipe(res);
     } catch (e) {
