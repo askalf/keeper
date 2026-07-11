@@ -10,6 +10,16 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-07-11
+
+### Added
+
+- **Signed releases.** Every GitHub release now ships the npm tarball plus its keyless Sigstore provenance bundle (`<tarball>.sigstore.json`), attested via GitHub OIDC. Verify with `gh attestation verify <tarball> --owner askalf`.
+
+### Changed
+
+- The ClusterFuzzLite build now installs via `npm ci` (integrity-verified against the committed lockfile) and pins the OSS-Fuzz base image by digest.
+
 ## [0.2.0] - 2026-07-11
 
 ### Added
