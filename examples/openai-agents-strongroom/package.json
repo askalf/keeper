@@ -1,5 +1,5 @@
 {
-  "name": "openai-agents-keeper-example",
+  "name": "openai-agents-strongroom-example",
   "private": true,
   "type": "module",
   "description": "Run an OpenAI Agents SDK agent whose API key never enters its env — model calls go through a keeper broker lease",

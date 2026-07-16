@@ -52,7 +52,7 @@ upstream) is exactly what production runs.
 From a keeper checkout:
 
 ```bash
-cd examples/mcp-keeper
+cd examples/mcp-strongroom
 npm install
 npm run demo      # -> MCP_KEEPER_PASS
 npm run verify    # -> AUDIT_VERIFY_PASS  (re-checks the audit the demo left behind)
@@ -89,8 +89,8 @@ servers) owns the vault, runs `startBroker()` / `keeper broker`, and grants
 each server a lease scoped to exactly the upstream and paths it needs —
 `--inject x-api-key` for Anthropic-style APIs, `bearer` for OpenAI-style, any
 `Header-Name` for the rest. The sibling examples show the same broker pattern
-from the client side: [`openai-agents-keeper`](../openai-agents-keeper/)
-(Bearer) and [`anthropic-sdk-keeper`](../anthropic-sdk-keeper/) (x-api-key).
+from the client side: [`openai-agents-strongroom`](../openai-agents-strongroom/)
+(Bearer) and [`anthropic-sdk-strongroom`](../anthropic-sdk-strongroom/) (x-api-key).
 
 One honest caveat about this demo's shape: the control plane (vault + broker)
 runs in the orchestrating process so the example is self-contained, and the
