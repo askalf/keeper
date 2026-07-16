@@ -1,5 +1,5 @@
 {
-  "name": "anthropic-sdk-keeper-example",
+  "name": "anthropic-sdk-strongroom-example",
   "private": true,
   "type": "module",
   "description": "Run an Anthropic SDK client whose API key never enters its env — model calls go through a keeper broker lease (x-api-key injection)",

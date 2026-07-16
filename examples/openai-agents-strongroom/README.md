@@ -51,7 +51,7 @@ path (SDK → HTTP → broker → upstream) is exactly what production runs.
 From a keeper checkout:
 
 ```bash
-cd examples/openai-agents-keeper
+cd examples/openai-agents-strongroom
 npm install
 npm run demo      # -> OPENAI_AGENTS_KEEPER_PASS
 npm run verify    # -> AUDIT_VERIFY_PASS  (re-checks the audit the demo left behind)

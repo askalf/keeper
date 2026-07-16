@@ -60,7 +60,7 @@ runs.
 From a keeper checkout:
 
 ```bash
-cd examples/anthropic-sdk-keeper
+cd examples/anthropic-sdk-strongroom
 npm install
 npm run demo      # -> ANTHROPIC_SDK_KEEPER_PASS
 npm run verify    # -> AUDIT_VERIFY_PASS  (re-checks the audit the demo left behind)
@@ -89,7 +89,7 @@ npm run verify    # -> AUDIT_VERIFY_PASS  (re-checks the audit the demo left beh
 ## Adapting this to your stack
 
 This is the `x-api-key` variant of the pattern; the sibling
-[`openai-agents-keeper`](../openai-agents-keeper/) example is the
+[`openai-agents-strongroom`](../openai-agents-strongroom/) example is the
 `Authorization: Bearer` variant. Any client that takes a base URL inherits it
 unchanged: point the base URL at `http://127.0.0.1:<port>/<lease>`, hand the
 client a placeholder key, and grant the lease with the matching `--inject`
