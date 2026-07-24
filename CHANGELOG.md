@@ -1,14 +1,36 @@
 # Changelog
 
-## 0.1.1
-
-- **Renamed: `@askalf/keeper` → `@askalf/strongroom`** (npm-publishable name; `keeper` is squatted unscoped and the registry create-policy blocks colliding scoped names). GitHub repo becomes `askalf/strongroom` (old URLs redirect). Legacy `keeper` bin alias retained alongside the new `strongroom` bin; `KEEPER_*` env vars and `~/.keeper` unchanged.
-
-All notable changes to **@askalf/keeper** are documented here. The format is
+All notable changes to **@askalf/strongroom** are documented here. The format is
 based on [Keep a Changelog](https://keepachangelog.com/), and this project
 adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
+
+## [0.4.0] - 2026-07-24
+
+### Changed
+
+- **Zero runtime dependencies — the audit chain is vendored.** strongroom
+  depended on `@askalf/redstamp` through a **git** specifier
+  (`github:askalf/redstamp#3da60b9`), so `npm i @askalf/strongroom` shelled out
+  to git and reached GitHub at install time — for one ~200-line, dependency-free
+  module (`ChainedFileAudit` / `verifyAuditFile`). That fails in exactly the
+  environments a secrets vault belongs in: air-gapped hosts, registry-mirrored or
+  git-less CI images, and any build that refuses install-time VCS fetches. It also
+  kept that code out of the published tarball, so it carried none of strongroom's
+  npm provenance. The primitive now lives in `src/chain.mjs` (verbatim from
+  redstamp `src/audit.mjs` @ `27c2685`, MIT, same author), and **strongroom
+  installs from the registry alone.**
+- **The chain format is unchanged and stays cross-verifiable.** Existing
+  `~/.keeper/audit.jsonl` logs verify exactly as before, redstamp can still verify
+  a strongroom log, and `test/chain-compat.test.mjs` pins the chain against
+  vectors computed with redstamp's own implementation so the two copies cannot
+  drift silently. No API, CLI, or on-disk change — this is a packaging fix.
+
+### Fixed
+
+- CHANGELOG: the `0.1.1` rename entry sat above the document preamble, and the
+  preamble still named `@askalf/keeper`. Both corrected.
 
 ## [0.3.0] - 2026-07-16
 
@@ -136,6 +158,10 @@ adheres to [Semantic Versioning](https://semver.org/).
   family of bugs. Pinned by a regression test that forces `umask 000` and asserts
   the socket carries no group/other bits.
 
+## [0.1.1] - 2026-07-10
+
+- **Renamed: `@askalf/keeper` → `@askalf/strongroom`** (npm-publishable name; `keeper` is squatted unscoped and the registry create-policy blocks colliding scoped names). GitHub repo becomes `askalf/strongroom` (old URLs redirect). Legacy `keeper` bin alias retained alongside the new `strongroom` bin; `KEEPER_*` env vars and `~/.keeper` unchanged.
+
 ## [0.1.0] - 2026-06-16
 
 First public release — own your agent secrets: hand agents leases, not keys.
@@ -164,5 +190,9 @@ First public release — own your agent secrets: hand agents leases, not keys.
   (shared with `@askalf/warden`); editing a past entry breaks `keeper audit
   --verify`. Leases are logged by fingerprint, never raw.
 
+[0.4.0]: https://github.com/askalf/strongroom/releases/tag/v0.4.0
+[0.3.0]: https://github.com/askalf/strongroom/releases/tag/v0.3.0
+[0.2.1]: https://github.com/askalf/strongroom/releases/tag/v0.2.1
 [0.2.0]: https://github.com/askalf/strongroom/releases/tag/v0.2.0
+[0.1.1]: https://github.com/askalf/strongroom/releases/tag/v0.1.1
 [0.1.0]: https://github.com/askalf/keeper/releases/tag/v0.1.0

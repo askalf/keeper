@@ -1,5 +1,6 @@
-// Tamper-evident audit of every secret access — reuses warden's hash-chained
-// audit (the shared security-stack primitive). Each grant / redeem / deny /
+// Tamper-evident audit of every secret access — built on the hash-chained audit
+// from redstamp, the shared security-stack primitive (vendored in ./chain.mjs so
+// strongroom stays a zero-dependency npm install). Each grant / redeem / deny /
 // revoke is chained, so a deleted or edited entry breaks verification.
 //
 // The keyless hash chain catches MID-chain edits, but on its own it does NOT
@@ -12,7 +13,7 @@
 // without the master key, so truncating or splicing the log is now detectable.
 import crypto from 'node:crypto';
 import fs from 'node:fs';
-import { ChainedFileAudit, verifyAuditFile } from '@askalf/redstamp/audit';
+import { ChainedFileAudit, verifyAuditFile } from './chain.mjs';
 import * as vault from './vault.mjs';
 import { home, kpath } from './paths.mjs';
 
